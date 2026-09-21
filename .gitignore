@@ -1,0 +1,35 @@
+# Environnement virtuel
+.venv/
+venv/
+ENV/
+
+# Caches Python et compilation
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Fichiers de configuration locaux (contenant les tokens API)
+.env
+.env.local
+
+# Modèles sauvegardés et fichiers volumineux de checkpoints
+checkpoints/
+*.pt
+*.pth
+
+# Fichiers générés localement
+bpe_tokenizer.json
+bpe_tokenizer_*.json
+*.log
+
+# Node.js et PWA
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Système macOS
+.DS_Store
+Thumbs.db
+
