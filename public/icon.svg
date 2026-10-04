@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#064e3b" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#022c22" />
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#ef4444" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+
+  <!-- Outer subtle circular ring -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#34d399" stroke-width="4" stroke-opacity="0.15" stroke-dasharray="12 12" />
+
+  <!-- Stylized leaf symbol (Nutrition / Freshness) -->
+  <path d="M 256 120 C 180 140 140 210 155 300 C 165 355 210 395 265 390 C 350 382 385 295 385 185 C 330 185 285 160 256 120 Z" 
+        fill="url(#leafGrad)" filter="url(#glow)" />
+
+  <!-- Leaf center rib -->
+  <path d="M 175 330 Q 240 260 365 200" fill="none" stroke="#ecfdf5" stroke-width="8" stroke-linecap="round" stroke-opacity="0.8" />
+
+  <!-- Energy flame accent (Calories / Metabolism) -->
+  <path d="M 285 240 C 275 210 295 190 310 180 C 315 205 335 220 330 245 C 326 265 308 275 295 268 C 285 262 280 252 285 240 Z" 
+        fill="url(#accentGrad)" />
+
+  <!-- Sparkle dot -->
+  <circle cx="355" cy="155" r="10" fill="#fde68a" />
+</svg>
