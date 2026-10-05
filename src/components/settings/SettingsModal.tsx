@@ -32,7 +32,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       ? 'gemini-3.6-flash' 
       : settings.geminiModel
   );
-  const [weeklyBudget, setWeeklyBudget] = useState(settings.weeklyCalorieBudget || 17500);
+  const [dailyTarget, setDailyTarget] = useState<number>(() => {
+    if (settings.customDailyTarget && settings.customDailyTarget > 0) {
+      return settings.customDailyTarget;
+    }
+    return Math.round((settings.weeklyCalorieBudget || 17500) / 7);
+  });
   const [showKeySecurityGuide, setShowKeySecurityGuide] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -43,10 +48,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!isOpen) return null;
 
   const handleSave = () => {
+    const finalDaily = Math.max(500, Number(dailyTarget) || 2500);
     updateSettings({
       geminiApiKey: apiKey.trim(),
       geminiModel: model,
-      weeklyCalorieBudget: Number(weeklyBudget) || 17500
+      customDailyTarget: finalDaily,
+      weeklyCalorieBudget: finalDaily * 7
     });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
@@ -182,25 +189,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Section 2 : Budget Hebdomadaire Manuel */}
+          {/* Section 2 : Objectif Calorique Manuel */}
           <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-3">
             <span className="text-xs font-bold text-white block">
-              Budget Hebdomadaire Cible
+              Objectif Calorique Journalier
             </span>
             <div className="flex items-center gap-3">
-              <div className="flex-1">
+              <div className="flex-1 relative">
                 <input
                   type="number"
-                  step={100}
-                  value={weeklyBudget}
-                  onChange={(e) => setWeeklyBudget(Number(e.target.value))}
+                  step={25}
+                  value={dailyTarget}
+                  onChange={(e) => setDailyTarget(Math.max(500, Number(e.target.value)))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
                 />
+                <span className="absolute right-3 top-2 text-[10px] text-emerald-400 font-bold pointer-events-none">
+                  kcal / j
+                </span>
               </div>
               <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
-                kcal / semaine (~{Math.round(weeklyBudget / 7)} kcal/j)
+                = {(dailyTarget * 7).toLocaleString('fr-FR')} kcal / sem.
               </span>
             </div>
+            <p className="text-[10px] text-slate-400">
+              Définit votre objectif quotidien et synchronise automatiquement votre budget de semaine ({dailyTarget} × 7).
+            </p>
           </div>
 
           {/* Section 3 : Sauvegarde & Restauration (Export / Import JSON) */}

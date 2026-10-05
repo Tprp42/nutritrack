@@ -61,6 +61,7 @@ interface NutritionContextType {
   overallAnalytics: OverallAnalytics;
   macroTargets: MacroTarget;
   dailyCalorieTarget: number;
+  setCustomDailyCalorieTarget: (calories: number) => void;
   exportData: () => void;
   importData: (file: File) => Promise<{ count: number }>;
   resetData: () => void;
@@ -213,19 +214,39 @@ export const NutritionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return calculatedProfile?.recommendedDailyCalories || 2500;
   }, [settings.customDailyTarget, settings.weeklyCalorieBudget, calculatedProfile]);
 
+  const setCustomDailyCalorieTarget = useCallback((calories: number) => {
+    const val = Math.max(500, Math.round(calories));
+    updateSettings({
+      customDailyTarget: val,
+      weeklyCalorieBudget: val * 7
+    });
+  }, [updateSettings]);
+
   const macroTargets = useMemo((): MacroTarget => {
     if (calculatedProfile) {
-      return calculatedProfile.macroTargets;
+      // Préserve les protéines indispensables du profil et adapte glucides / lipides selon la cible personnalisée
+      const protG = calculatedProfile.macroTargets.proteins_g;
+      const protCals = protG * 4;
+      const remainingCals = Math.max(0, dailyCalorieTarget - protCals);
+      const carbsG = Math.round((remainingCals * 0.65) / 4);
+      const fatsG = Math.round((remainingCals * 0.35) / 9);
+      return {
+        proteins_g: protG,
+        carbs_g: carbsG,
+        fats_g: fatsG,
+        fibres_g: Math.round((dailyCalorieTarget / 1000) * 14),
+        sodium_mg: 2300
+      };
     }
-    // Cibles par défaut pour 2500 kcal (25% P, 50% G, 25% L)
+    // Cibles par défaut (25% P, 50% G, 25% L) adaptées à la cible calorique choisie
     return {
-      proteins_g: 156,
-      carbs_g: 312,
-      fats_g: 69,
-      fibres_g: 35,
+      proteins_g: Math.round((dailyCalorieTarget * 0.25) / 4),
+      carbs_g: Math.round((dailyCalorieTarget * 0.50) / 4),
+      fats_g: Math.round((dailyCalorieTarget * 0.25) / 9),
+      fibres_g: Math.round((dailyCalorieTarget / 1000) * 14),
       sodium_mg: 2300
     };
-  }, [calculatedProfile]);
+  }, [calculatedProfile, dailyCalorieTarget]);
 
   // Résumé de la journée sélectionnée
   const currentDaySummary = useMemo((): DaySummary => {
@@ -598,6 +619,7 @@ export const NutritionProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     overallAnalytics,
     macroTargets,
     dailyCalorieTarget,
+    setCustomDailyCalorieTarget,
     exportData,
     importData,
     resetData

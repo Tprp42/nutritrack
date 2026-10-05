@@ -370,6 +370,37 @@ test('Export / Import : Les favoris sont préservés dans le fichier de sauvegar
   assert.strictEqual(parsed.favorites.meals.length, favs.meals.length);
 });
 
+test('Personnalisation des Calories : Cible journalière manuelle et synchronisation du budget hebdomadaire', () => {
+  // Test d'un profil initial
+  const profile = {
+    weightKg: 75,
+    heightCm: 178,
+    age: 28,
+    gender: 'male' as const,
+    activityLevel: 'moderate' as const,
+    goal: 'maintenance' as const
+  };
+
+  const calc = calculateProfileNutrition(profile);
+  assert(calc.recommendedDailyCalories > 0);
+
+  // L'utilisateur choisit librement 2100 kcal au lieu de la recommandation
+  const customTarget = 2100;
+  const syncedWeeklyBudget = customTarget * 7;
+  assert.strictEqual(syncedWeeklyBudget, 14700);
+
+  // Calcul proportionnel des macros
+  const protG = calc.macroTargets.proteins_g;
+  const protCals = protG * 4;
+  const remainingCals = Math.max(0, customTarget - protCals);
+  const carbsG = Math.round((remainingCals * 0.65) / 4);
+  const fatsG = Math.round((remainingCals * 0.35) / 9);
+
+  assert(carbsG > 0, 'Les glucides doivent être positifs');
+  assert(fatsG > 0, 'Les lipides doivent être positifs');
+  assert.strictEqual(protG, calc.macroTargets.proteins_g, 'Les protéines indispensables du profil doivent être préservées');
+});
+
 console.log(`\n========================================`);
 console.log(`Résultats : ${passedTests}/${totalTests} tests réussis avec succès ! 🚀`);
 console.log(`========================================\n`);

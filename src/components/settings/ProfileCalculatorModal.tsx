@@ -6,6 +6,7 @@ import {
   TrendingDown, 
   TrendingUp, 
   Minus,
+  RotateCcw,
   Sparkles,
   Info
 } from 'lucide-react';
@@ -30,6 +31,7 @@ export const ProfileCalculatorModal: React.FC<ProfileCalculatorModalProps> = ({
   const [gender, setGender] = useState<Gender>(settings.profile?.gender || 'male');
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(settings.profile?.activityLevel || 'moderate');
   const [goal, setGoal] = useState<FitnessGoal>(settings.profile?.goal || 'maintenance');
+  const [customCalories, setCustomCalories] = useState<number | null>(() => settings.customDailyTarget || null);
 
   const currentProfile: UserProfile = useMemo(() => ({
     weightKg,
@@ -44,13 +46,31 @@ export const ProfileCalculatorModal: React.FC<ProfileCalculatorModalProps> = ({
     return calculateProfileNutrition(currentProfile);
   }, [currentProfile]);
 
+  const effectiveDailyCalories = customCalories !== null 
+    ? customCalories 
+    : calculation.recommendedDailyCalories;
+
+  const effectiveMacros = useMemo(() => {
+    const protG = calculation.macroTargets.proteins_g;
+    const protCals = protG * 4;
+    const remainingCals = Math.max(0, effectiveDailyCalories - protCals);
+    const carbsG = Math.round((remainingCals * 0.65) / 4);
+    const fatsG = Math.round((remainingCals * 0.35) / 9);
+    return {
+      proteins_g: protG,
+      carbs_g: carbsG,
+      fats_g: fatsG,
+    };
+  }, [calculation, effectiveDailyCalories]);
+
   if (!isOpen) return null;
 
   const handleApply = () => {
+    const finalDaily = Math.max(500, Math.round(effectiveDailyCalories));
     updateSettings({
       profile: currentProfile,
-      weeklyCalorieBudget: calculation.recommendedWeeklyCalories,
-      customDailyTarget: calculation.recommendedDailyCalories
+      weeklyCalorieBudget: finalDaily * 7,
+      customDailyTarget: finalDaily
     });
     onClose();
   };
@@ -228,64 +248,109 @@ export const ProfileCalculatorModal: React.FC<ProfileCalculatorModalProps> = ({
             </div>
           </div>
 
-          {/* Résultats du Calcul Scientifique */}
+          {/* Résultats du Calcul Scientifique & Objectif Ajustable */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 p-4 rounded-2xl border border-emerald-500/30 shadow-lg space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                Recommandation Personnalisée
+                Objectif Calorique
               </span>
               <span className="text-[11px] text-slate-400">
-                TDEE : {calculation.tdee} kcal
+                TDEE estimé : {calculation.tdee} kcal
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 items-center py-2 border-y border-slate-800/80">
-              <div>
-                <span className="text-[11px] text-slate-400 block font-medium">
-                  Cible journalière
+            {/* Ajustement interactif de la cible calorique */}
+            <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-slate-300 font-semibold">
+                  Cible journalière :
                 </span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-white">
-                    {calculation.recommendedDailyCalories}
-                  </span>
-                  <span className="text-xs text-emerald-400 font-bold">kcal/j</span>
-                </div>
+                {effectiveDailyCalories !== calculation.recommendedDailyCalories && (
+                  <button
+                    type="button"
+                    onClick={() => setCustomCalories(calculation.recommendedDailyCalories)}
+                    className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold underline underline-offset-2"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Rétablir recommandation ({calculation.recommendedDailyCalories} kcal)
+                  </button>
+                )}
               </div>
 
-              <div className="border-l border-slate-800/80 pl-3">
-                <span className="text-[11px] text-slate-400 block font-medium">
-                  Budget hebdomadaire
-                </span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-white">
-                    {calculation.recommendedWeeklyCalories.toLocaleString('fr-FR')}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCustomCalories(Math.max(500, effectiveDailyCalories - 100))}
+                  className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-800 active:scale-95 transition-all"
+                >
+                  -100
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomCalories(Math.max(500, effectiveDailyCalories - 50))}
+                  className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-800 active:scale-95 transition-all"
+                >
+                  -50
+                </button>
+
+                <div className="flex-1 relative">
+                  <input
+                    type="number"
+                    step={25}
+                    value={effectiveDailyCalories}
+                    onChange={(e) => setCustomCalories(Math.max(500, Number(e.target.value)))}
+                    className="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-3 py-1.5 text-base font-black text-center text-white focus:outline-none focus:border-emerald-400"
+                  />
+                  <span className="absolute right-3 top-2 text-[10px] text-emerald-400 font-bold pointer-events-none">
+                    kcal/j
                   </span>
-                  <span className="text-xs text-emerald-400 font-bold">kcal/sem.</span>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCustomCalories(effectiveDailyCalories + 50)}
+                  className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-800 active:scale-95 transition-all"
+                >
+                  +50
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomCalories(effectiveDailyCalories + 100)}
+                  className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-800 active:scale-95 transition-all"
+                >
+                  +100
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                <span>Budget hebdomadaire :</span>
+                <span className="font-extrabold text-white">
+                  {(effectiveDailyCalories * 7).toLocaleString('fr-FR')} kcal / sem.
+                </span>
               </div>
             </div>
 
-            {/* Répartition Recommandée des Macronutriments */}
+            {/* Répartition Adaptée des Macronutriments */}
             <div>
               <span className="text-[11px] text-slate-400 block mb-1.5 font-medium">
-                Macronutriments recommandés :
+                Répartition des macronutriments cibles :
               </span>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800/80">
                   <span className="text-[10px] text-slate-400 block font-medium">Protéines</span>
                   <span className="text-xs font-bold text-sky-400">
-                    {calculation.macroTargets.proteins_g}g
+                    {effectiveMacros.proteins_g}g
                   </span>
                   <span className="text-[9px] text-slate-500 block">
-                    ({(calculation.macroTargets.proteins_g / weightKg).toFixed(1)}g/kg)
+                    ({(effectiveMacros.proteins_g / weightKg).toFixed(1)}g/kg)
                   </span>
                 </div>
 
                 <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800/80">
                   <span className="text-[10px] text-slate-400 block font-medium">Glucides</span>
                   <span className="text-xs font-bold text-emerald-400">
-                    {calculation.macroTargets.carbs_g}g
+                    {effectiveMacros.carbs_g}g
                   </span>
                   <span className="text-[9px] text-slate-500 block">Énergie</span>
                 </div>
@@ -293,7 +358,7 @@ export const ProfileCalculatorModal: React.FC<ProfileCalculatorModalProps> = ({
                 <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800/80">
                   <span className="text-[10px] text-slate-400 block font-medium">Lipides</span>
                   <span className="text-xs font-bold text-amber-400">
-                    {calculation.macroTargets.fats_g}g
+                    {effectiveMacros.fats_g}g
                   </span>
                   <span className="text-[9px] text-slate-500 block">Santé hormone</span>
                 </div>
