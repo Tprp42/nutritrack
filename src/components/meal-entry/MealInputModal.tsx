@@ -30,7 +30,7 @@ export const MealInputModal: React.FC<MealInputModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
       <div 
-        className="w-full max-w-lg bg-slate-950 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto pb-[max(20px,env(safe-area-inset-bottom))]"
+        className="w-full max-w-lg bg-slate-950 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto pb-[max(36px,calc(2.5rem+env(safe-area-inset-bottom)))]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Poignée de glissement iOS */}

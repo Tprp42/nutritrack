@@ -88,7 +88,7 @@ export const TextCapture: React.FC<TextCaptureProps> = ({ onSuccess, onOpenSetti
             <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
             <span>Insérer un favori en 1 clic :</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1 overscroll-contain">
             {favorites.meals.map((m) => (
               <button
                 key={m.id}

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { calculateProfileNutrition } from '../src/services/profileCalculator';
 import { normalizeGeminiResponse } from '../src/services/gemini';
-import { seedInitialFavorites } from '../src/services/storage';
+import { seedInitialFavorites, sanitizeText, unescapeHtml } from '../src/services/storage';
 import { formatDateYMD, shiftDateByWeeks, getWeekRangeLabel } from '../src/utils/dateUtils';
 
 console.log('🔒 Démarrage de la suite de tests de sécurité et de validation logique...\n');
@@ -91,23 +91,47 @@ test('Sécurité : Isolation réseau - Seul l\'endpoint officiel Google est cont
   }
 });
 
+test('Sécurité : Absence totale de PHP (Immunité absolue aux failles PHP)', () => {
+  const rootDir = path.resolve('.');
+  function scanForPhp(dir: string) {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      if (file === 'node_modules' || file === '.git' || file === 'dist') continue;
+      const fullPath = path.join(dir, file);
+      if (fs.statSync(fullPath).isDirectory()) {
+        scanForPhp(fullPath);
+      } else {
+        const ext = path.extname(file).toLowerCase();
+        assert(!['.php', '.phtml', '.php3', '.php4', '.php5', '.phps'].includes(ext), `Fichier PHP détecté : ${fullPath}`);
+      }
+    }
+  }
+  scanForPhp(rootDir);
+
+  // Vérifie package.json
+  const pkgContent = fs.readFileSync(path.resolve('package.json'), 'utf8');
+  assert(!pkgContent.toLowerCase().includes('php'), 'Aucune dépendance PHP ne doit exister');
+});
+
 // =========================================================================
 // 2. Tests de Sécurité : Sanitisation anti-XSS et protection de l'Export JSON
 // =========================================================================
-test('Sécurité & Sanitisation : Échappement des balises scripts et HTML malveillant', () => {
-  function escapeHtml(str: string) {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
+test('Sécurité & Sanitisation : Décodage anti-boucle d\'entités HTML et réparation des textes corrompus', () => {
+  // Test 1 : Réparation d'une chaîne ayant subi des encodages multiples (bug Flocons d&amp;amp;amp;#039;avoine)
+  const corruptedMultiEscaped = "Flocons d&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;#039;avoine (50g)";
+  const repaired = sanitizeText(corruptedMultiEscaped);
+  assert.strictEqual(repaired, "Flocons d'avoine (50g)", "Les boucles d'entités HTML doivent être complètement résorbées");
 
-  const maliciousInput = '<script>alert("XSS Attack")</script>';
-  const sanitized = escapeHtml(maliciousInput);
-  assert(!sanitized.includes('<script>'), 'Les balises script ne doivent pas être conservées en clair');
-  assert(sanitized.includes('&lt;script&gt;'), 'Les chevrons doivent être convertis en entités HTML');
+  // Test 2 : Chaîne tronquée avec suffixe ;a
+  const truncatedCorrupted = "Flocons d&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;a";
+  const repairedTruncated = sanitizeText(truncatedCorrupted);
+  assert.strictEqual(repairedTruncated, "Flocons d'avoine (50g)", "Le nom de l'aliment favori corrompu doit être réparé");
+
+  // Test 3 : Neutralisation des balises scripts sans détruire les apostrophes
+  const maliciousInput = '<script>alert("XSS Attack")</script>Pavé de saumon d\'Alaska';
+  const sanitized = sanitizeText(maliciousInput);
+  assert(!sanitized.includes('<script>'), 'Les balises script doivent être éliminées');
+  assert(sanitized.includes("Pavé de saumon d'Alaska"), 'Le texte légitime avec apostrophe doit être intact');
 });
 
 test('Sécurité : L’export JSON ne doit jamais exposer la clé API Gemini', () => {

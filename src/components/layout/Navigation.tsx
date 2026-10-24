@@ -21,7 +21,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   onOpenNewMeal
 }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-2xl border-t border-slate-800/80 pb-[max(14px,env(safe-area-inset-bottom))] pt-2 transition-all">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-2xl border-t border-slate-800/80 pb-[max(14px,calc(0.5rem+env(safe-area-inset-bottom)))] pt-2 shadow-2xl transition-all">
       <div className="max-w-md mx-auto px-4 flex items-center justify-between">
         {/* Onglet Journal / Semaine */}
         <button

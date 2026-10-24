@@ -65,15 +65,15 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-white pb-[max(70px,env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-white">
       {/* En-tête Sticky avec Safe Area iOS */}
       <Header
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenProfile={() => setIsProfileOpen(true)}
       />
 
-      {/* Contenu Principal Mobile-First */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-3">
+      {/* Contenu Principal Mobile-First avec marge basse pour dégager la barre de navigation */}
+      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
         {activeTab === 'dashboard' && (
           <div className="space-y-4 animate-fadeIn">
             {/* 1. Carte Budget Hebdomadaire & Moyenne journalière restante */}

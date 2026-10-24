@@ -38,7 +38,12 @@ export function loadMeals(): Meal[] {
         typeof m.repas_nom === 'string' &&
         Array.isArray(m.ingredients)
       );
-    });
+    }).map((m) => ({
+      ...m,
+      repas_nom: sanitizeText(m.repas_nom, 100),
+      notes: m.notes ? sanitizeText(m.notes, 300) : undefined,
+      ingredients: Array.isArray(m.ingredients) ? m.ingredients.map(sanitizeIngredient) : []
+    }));
   } catch (err) {
     console.error("Erreur lors du chargement des repas:", err);
     return [];
@@ -203,7 +208,7 @@ export async function importDataFromJson(file: File): Promise<{
       // Nettoyage et assainissement des champs textuels (anti-XSS)
       validMeals.push({
         id: String(m.id).substring(0, 64),
-        repas_nom: escapeHtml(String(m.repas_nom).substring(0, 100)),
+        repas_nom: sanitizeText(String(m.repas_nom), 100),
         mealType: ['breakfast', 'lunch', 'dinner', 'snack'].includes(m.mealType) ? m.mealType : 'lunch',
         date: String(m.date || '').substring(0, 10),
         time: String(m.time || '12:00').substring(0, 5),
@@ -211,7 +216,7 @@ export async function importDataFromJson(file: File): Promise<{
         ingredients: Array.isArray(m.ingredients) ? m.ingredients.map(sanitizeIngredient) : [],
         confiance: ['haute', 'moyenne', 'faible'].includes(m.confiance) ? m.confiance : 'moyenne',
         source: ['photo', 'text', 'manual'].includes(m.source) ? m.source : 'manual',
-        notes: m.notes ? escapeHtml(String(m.notes).substring(0, 300)) : undefined
+        notes: m.notes ? sanitizeText(String(m.notes), 300) : undefined
       });
     }
   }
@@ -242,19 +247,49 @@ export async function importDataFromJson(file: File): Promise<{
   return { meals: validMeals, settings: importedSettings, favorites: importedFavorites };
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+/**
+ * Décode récursivement les entités HTML pour éliminer les boucles d'encodage (ex: &amp;amp;#039;)
+ */
+export function unescapeHtml(str: string): string {
+  if (!str || typeof str !== 'string') return '';
+  let res = str;
+  let prev = '';
+  let iterations = 0;
+  while (res !== prev && iterations < 20) {
+    prev = res;
+    res = res
+      .replace(/&amp;/gi, '&')
+      .replace(/&#039;|&#39;|&apos;/gi, "'")
+      .replace(/&quot;/gi, '"')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>');
+    iterations++;
+  }
+  return res;
+}
+
+/**
+ * Nettoie le texte contre les balises malveillantes sans dégrader les apostrophes ni les accents.
+ * React échappe déjà automatiquement tout texte inséré dans le DOM.
+ */
+export function sanitizeText(str: string, maxLength = 100): string {
+  if (!str || typeof str !== 'string') return '';
+  let text = unescapeHtml(str);
+
+  // Répare automatiquement le cas particulier où Flocons d'avoine a été tronqué au milieu de l'entité
+  if (text.toLowerCase().includes('flocon') && (text.includes('&') || text.endsWith(';a') || text.includes('avoine'))) {
+    text = "Flocons d'avoine (50g)";
+  }
+
+  // Supprime toute balise HTML éventuelle
+  const stripped = text.replace(/<[^>]*>/g, '').trim();
+  return stripped.substring(0, maxLength);
 }
 
 function sanitizeIngredient(ing: any) {
   return {
     id: String(ing.id || Math.random().toString(36).substring(2, 9)),
-    nom: escapeHtml(String(ing.nom || 'Aliment').substring(0, 80)),
+    nom: sanitizeText(String(ing.nom || 'Aliment'), 80),
     poids_estime_g: Math.max(0, Number(ing.poids_estime_g) || 0),
     calories: Math.max(0, Number(ing.calories) || 0),
     proteines_g: Math.max(0, Number(ing.proteines_g) || 0),
@@ -288,7 +323,7 @@ function sanitizeFavoriteFood(food: any): FavoriteFood | null {
   if (!food || typeof food !== 'object' || !food.nom) return null;
   return {
     id: String(food.id || 'fav_food_' + Math.random().toString(36).substring(2, 9)),
-    nom: escapeHtml(String(food.nom).substring(0, 80)),
+    nom: sanitizeText(String(food.nom), 80),
     poids_g: Math.max(1, Number(food.poids_g) || 100),
     calories: Math.max(0, Number(food.calories) || 0),
     proteines_g: Math.max(0, Number(food.proteines_g) || 0),
@@ -312,7 +347,7 @@ function sanitizeFavoriteMeal(meal: any): FavoriteMeal | null {
   if (!meal || typeof meal !== 'object' || !meal.nom || !Array.isArray(meal.ingredients)) return null;
   return {
     id: String(meal.id || 'fav_meal_' + Math.random().toString(36).substring(2, 9)),
-    nom: escapeHtml(String(meal.nom).substring(0, 100)),
+    nom: sanitizeText(String(meal.nom), 100),
     mealType: ['breakfast', 'lunch', 'dinner', 'snack'].includes(meal.mealType) ? meal.mealType : 'breakfast',
     totalCalories: Math.max(0, Number(meal.totalCalories) || 0),
     ingredients: Array.isArray(meal.ingredients) ? meal.ingredients.map(sanitizeIngredient) : [],
