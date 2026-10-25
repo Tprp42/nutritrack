@@ -319,15 +319,23 @@ export async function analyzeMealText(
 }
 
 /**
- * Analyse une photo de repas compressée via Gemini multimodal
+ * Analyse une ou plusieurs photos de repas compressées via Gemini multimodal
  */
 export async function analyzeMealPhoto(
-  base64Data: string,
-  mimeType: string,
+  base64DataOrList: string | Array<{ base64Data: string; mimeType: string }>,
+  mimeTypeOrModel: string,
   apiKey: string,
   model: string = 'gemini-3.6-flash',
   additionalNotes?: string
 ): Promise<GeminiNutritionResponse> {
+  let images: Array<{ base64Data: string; mimeType: string }> = [];
+
+  if (Array.isArray(base64DataOrList)) {
+    images = base64DataOrList;
+  } else {
+    images = [{ base64Data: base64DataOrList, mimeType: mimeTypeOrModel || 'image/jpeg' }];
+  }
+
   if (!apiKey || apiKey.trim() === '') {
     throw new Error("Clé d'API Gemini non renseignée. Veuillez configurer votre clé dans les Réglages.");
   }
@@ -335,20 +343,23 @@ export async function analyzeMealPhoto(
   const activeModel = model === 'gemini-2.5-flash' ? 'gemini-3.6-flash' : model;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey.trim()}`;
 
+  const imageCountText = images.length > 1 ? `ces ${images.length} photos composant le même repas (ex: plat + entrée/dessert/boisson)` : `cette photo de repas`;
   const promptText = additionalNotes 
-    ? `${SYSTEM_PROMPT}\n\nPrécisions de l'utilisateur sur la photo : "${additionalNotes}"`
-    : `${SYSTEM_PROMPT}\n\nAnalyse attentivement cette photo de repas, identifie tous les composants visibles et estime leurs portions.`;
+    ? `${SYSTEM_PROMPT}\n\nPrécisions de l'utilisateur sur le repas : "${additionalNotes}"\nAnalyse attentivement ${imageCountText}, identifie tous les composants et estime leurs portions globales.`
+    : `${SYSTEM_PROMPT}\n\nAnalyse attentivement ${imageCountText}, combine l'ensemble des aliments visibles composant ce repas et estime leurs portions globales.`;
+
+  const imageParts = images.map((img) => ({
+    inline_data: {
+      mime_type: img.mimeType || 'image/jpeg',
+      data: img.base64Data
+    }
+  }));
 
   const payload = {
     contents: [
       {
         parts: [
-          {
-            inline_data: {
-              mime_type: mimeType || 'image/jpeg',
-              data: base64Data
-            }
-          },
+          ...imageParts,
           { text: promptText }
         ]
       }
