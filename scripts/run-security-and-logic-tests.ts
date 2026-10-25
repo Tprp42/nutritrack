@@ -5,6 +5,8 @@ import { calculateProfileNutrition } from '../src/services/profileCalculator';
 import { normalizeGeminiResponse } from '../src/services/gemini';
 import { seedInitialFavorites, sanitizeText, unescapeHtml } from '../src/services/storage';
 import { formatDateYMD, shiftDateByWeeks, getWeekRangeLabel } from '../src/utils/dateUtils';
+import { extractRecentFoods, extractRecentMeals, tryMatchTextWithKnownFoods, recentFoodToIngredient } from '../src/utils/recentFoods';
+import { enrichIngredientWithBase100g, recalculateIngredientForWeight } from '../src/services/gemini';
 
 console.log('🔒 Démarrage de la suite de tests de sécurité et de validation logique...\n');
 
@@ -423,6 +425,77 @@ test('Personnalisation des Calories : Cible journalière manuelle et synchronisa
   assert(carbsG > 0, 'Les glucides doivent être positifs');
   assert(fatsG > 0, 'Les lipides doivent être positifs');
   assert.strictEqual(protG, calc.macroTargets.proteins_g, 'Les protéines indispensables du profil doivent être préservées');
+});
+
+test('Copie d\'aliments & Optimisation 0 API Call : Détection locale et recalcul proportionnel exact', () => {
+  // Simuler l'exemple donné par l'utilisateur :
+  // Hier : 1 cacao chaud (250g) et 2 pains au chocolat (140g)
+  // Aujourd'hui : même cacao (250g) et 1 seul pain au chocolat (70g)
+  const pastMeals = [
+    {
+      id: 'm_yesterday',
+      repas_nom: 'Petit déjeuner gourmand',
+      mealType: 'breakfast' as const,
+      date: '2026-10-24',
+      time: '08:30',
+      timestamp: 1729758600000,
+      source: 'manual' as const,
+      ingredients: [
+        enrichIngredientWithBase100g({
+          nom: 'Cacao chaud',
+          poids_estime_g: 250,
+          calories: 180,
+          proteines_g: 8.0,
+          glucides_g: 24.0,
+          lipides_g: 5.0
+        }),
+        enrichIngredientWithBase100g({
+          nom: 'Pain au chocolat',
+          poids_estime_g: 70, // 1 pain au choc = 70g, 290 kcal
+          calories: 290,
+          proteines_g: 5.0,
+          glucides_g: 32.0,
+          lipides_g: 16.0
+        })
+      ]
+    }
+  ];
+
+  // 1. Extraction automatique depuis l'historique (sans besoin de favoris)
+  const recentFoods = extractRecentFoods(pastMeals);
+  assert.strictEqual(recentFoods.length, 2, 'Les 2 aliments distincts doivent être extraits');
+
+  const recentMeals = extractRecentMeals(pastMeals);
+  assert.strictEqual(recentMeals.length, 1, 'Le repas récent doit être extrait');
+
+  // 2. Duplication directe de repas et ajustement d'ingrédient
+  const painOriginal = recentFoods.find(f => f.nom.includes('Pain au chocolat'))!;
+  assert(painOriginal, 'Pain au chocolat trouvé');
+  assert.strictEqual(painOriginal.poids_g, 70);
+  assert.strictEqual(painOriginal.calories, 290);
+
+  // Recalcul proportionnel exact pour 2 pains (140g) puis 1 seul pain (70g) : 0 APPEL API
+  const ing1 = recentFoodToIngredient(painOriginal, 70);
+  assert.strictEqual(ing1.calories, 290);
+  assert.strictEqual(ing1.proteines_g, 5.0);
+
+  const ing2 = recalculateIngredientForWeight(ing1, 140);
+  assert.strictEqual(ing2.calories, 580);
+  assert.strictEqual(ing2.proteines_g, 10.0);
+
+  // 3. Correspondance locale intelligente sans appel Gemini ("cacao et 1 pain au choc")
+  const matched = tryMatchTextWithKnownFoods('cacao et 1 pain au choc', recentFoods);
+  assert(matched !== null, 'Le texte doit être résolu localement sans API');
+  assert.strictEqual(matched!.length, 2);
+
+  const matchedCacao = matched!.find(m => m.nom.includes('Cacao'));
+  const matchedPain = matched!.find(m => m.nom.includes('Pain'));
+
+  assert(matchedCacao, 'Cacao détecté');
+  assert(matchedPain, 'Pain au chocolat détecté');
+  assert.strictEqual(matchedCacao!.poids_estime_g, 250);
+  assert.strictEqual(matchedPain!.poids_estime_g, 70);
+  assert.strictEqual(matchedPain!.calories, 290);
 });
 
 console.log(`\n========================================`);

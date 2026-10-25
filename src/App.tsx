@@ -12,7 +12,7 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { ProfileCalculatorModal } from './components/settings/ProfileCalculatorModal';
 import { AnalyticsBoard } from './components/analytics/AnalyticsBoard';
 import { GeminiNutritionResponse } from './services/gemini';
-import { Meal } from './types/nutrition';
+import { Meal, Ingredient } from './types/nutrition';
 
 const AppContent: React.FC = () => {
   const { addMeal, updateMeal, setSelectedDate } = useNutrition();
@@ -44,6 +44,50 @@ const AppContent: React.FC = () => {
     setEditingMeal(meal);
     setReviewData(null);
     setReviewSource(meal.source);
+    setIsReviewOpen(true);
+  };
+
+  // Duplication d'un repas complet (0 appel API)
+  const handleDuplicateMeal = (meal: Meal) => {
+    setEditingMeal(null);
+    setReviewData({
+      repas_nom: meal.repas_nom,
+      ingredients: meal.ingredients.map(ing => ({
+        nom: ing.nom,
+        poids_estime_g: ing.poids_estime_g,
+        calories: ing.calories,
+        proteines_g: ing.proteines_g,
+        glucides_g: ing.glucides_g,
+        lipides_g: ing.lipides_g,
+        fibres_g: ing.fibres_g,
+        sodium_mg: ing.sodium_mg
+      })),
+      confiance: 'haute'
+    });
+    setReviewSource('manual');
+    setIsReviewOpen(true);
+  };
+
+  // Copie d'un aliment unique vers un nouveau repas (0 appel API)
+  const handleCopyIngredient = (ingredient: Ingredient) => {
+    setEditingMeal(null);
+    setReviewData({
+      repas_nom: ingredient.nom,
+      ingredients: [
+        {
+          nom: ingredient.nom,
+          poids_estime_g: ingredient.poids_estime_g,
+          calories: ingredient.calories,
+          proteines_g: ingredient.proteines_g,
+          glucides_g: ingredient.glucides_g,
+          lipides_g: ingredient.lipides_g,
+          fibres_g: ingredient.fibres_g,
+          sodium_mg: ingredient.sodium_mg
+        }
+      ],
+      confiance: 'haute'
+    });
+    setReviewSource('manual');
     setIsReviewOpen(true);
   };
 
@@ -89,6 +133,8 @@ const AppContent: React.FC = () => {
             <MealList
               onOpenNewMeal={() => setIsMealInputOpen(true)}
               onEditMeal={handleEditMeal}
+              onDuplicateMeal={handleDuplicateMeal}
+              onCopyIngredient={handleCopyIngredient}
             />
           </div>
         )}

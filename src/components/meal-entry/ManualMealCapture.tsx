@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Check, Coffee, Utensils, Moon, Apple, Calculator, Star } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Check, Coffee, Utensils, Moon, Apple, Calculator, Star, History } from 'lucide-react';
 import { Meal, MealType, FavoriteFood, FavoriteMeal } from '../../types/nutrition';
 import { enrichIngredientWithBase100g, GeminiNutritionResponse } from '../../services/gemini';
 import { useNutrition } from '../../context/NutritionContext';
 import { formatDateYMD } from '../../utils/dateUtils';
 import { AutocompleteSuggestions } from './AutocompleteSuggestions';
+import { extractRecentFoods, extractRecentMeals, RecentFoodItem, RecentMealItem } from '../../utils/recentFoods';
 
 interface ManualMealCaptureProps {
   onSuccessReview: (data: GeminiNutritionResponse, source: 'manual') => void;
@@ -42,8 +43,12 @@ export const ManualMealCapture: React.FC<ManualMealCaptureProps> = ({
     addMeal, 
     favorites, 
     toggleFavoriteFood, 
-    isFavoriteFood 
+    isFavoriteFood,
+    meals
   } = useNutrition();
+
+  const recentFoods = useMemo(() => extractRecentFoods(meals, 15), [meals]);
+  const recentMeals = useMemo(() => extractRecentMeals(meals, 6), [meals]);
 
   const [mealName, setMealName] = useState('');
   const [saveAsFav, setSaveAsFav] = useState(false);
@@ -66,8 +71,8 @@ export const ManualMealCapture: React.FC<ManualMealCaptureProps> = ({
 
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Appliquer un aliment favori
-  const applyFavoriteFood = (food: FavoriteFood) => {
+  // Appliquer un aliment favori ou récent
+  const applyFavoriteFood = (food: FavoriteFood | RecentFoodItem) => {
     setFoodName(food.nom);
     if (!mealName) setMealName(food.nom);
     setWeightG(food.poids_g);
@@ -79,8 +84,8 @@ export const ManualMealCapture: React.FC<ManualMealCaptureProps> = ({
     setSodiumMg(food.sodium_mg || 0);
   };
 
-  // Appliquer un repas complet favori
-  const applyFavoriteMeal = (meal: FavoriteMeal) => {
+  // Appliquer un repas complet favori ou récent
+  const applyFavoriteMeal = (meal: FavoriteMeal | RecentMealItem) => {
     setMealName(meal.nom);
     if (meal.mealType) setMealType(meal.mealType);
     if (meal.ingredients.length === 1) {
@@ -213,7 +218,7 @@ export const ManualMealCapture: React.FC<ManualMealCaptureProps> = ({
             <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
             <span>Vos favoris sauvegardés :</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
             {favorites.meals.map((meal) => (
               <button
                 key={meal.id}
@@ -234,6 +239,42 @@ export const ManualMealCapture: React.FC<ManualMealCaptureProps> = ({
               >
                 <span>⭐ {food.nom}</span>
                 <span className="text-[10px] text-emerald-400 font-normal">({food.calories} kcal)</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Récents (historique direct sans favoris) */}
+      {(recentMeals.length > 0 || recentFoods.length > 0) && (
+        <div className="bg-sky-500/5 p-2.5 rounded-2xl border border-sky-500/20 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-sky-300">
+            <History className="w-3 h-3 text-sky-400" />
+            <span>Repas & aliments récents (0 appel API) :</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+            {recentMeals.map((meal) => (
+              <button
+                key={meal.id}
+                type="button"
+                onClick={() => applyFavoriteMeal(meal)}
+                className="text-[11px] py-1 px-2.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-200 hover:text-sky-100 transition-all active:scale-95 font-semibold flex items-center gap-1"
+              >
+                <Utensils className="w-2.5 h-2.5 text-sky-400" />
+                <span>{meal.nom}</span>
+                <span className="text-[10px] text-sky-300/80 font-normal">({meal.totalCalories} kcal)</span>
+              </button>
+            ))}
+            {recentFoods.map((food) => (
+              <button
+                key={food.id}
+                type="button"
+                onClick={() => applyFavoriteFood(food)}
+                className="text-[11px] py-1 px-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 border border-sky-900/50 text-slate-300 hover:text-sky-200 transition-all active:scale-95 font-semibold flex items-center gap-1"
+              >
+                <History className="w-2.5 h-2.5 text-sky-400" />
+                <span>{food.nom}</span>
+                <span className="text-[10px] text-sky-400 font-normal">({food.calories} kcal)</span>
               </button>
             ))}
           </div>

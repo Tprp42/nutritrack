@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Meal, MealType } from '../../types/nutrition';
+import { Meal, MealType, Ingredient } from '../../types/nutrition';
 import { useNutrition } from '../../context/NutritionContext';
 import { 
   Utensils, 
@@ -13,17 +13,33 @@ import {
   ChevronDown, 
   ChevronUp,
   Sparkles,
-  Plus
+  Plus,
+  Copy
 } from 'lucide-react';
 
 interface MealListProps {
   onOpenNewMeal: () => void;
   onEditMeal: (meal: Meal) => void;
+  onDuplicateMeal?: (meal: Meal) => void;
+  onCopyIngredient?: (ingredient: Ingredient) => void;
 }
 
-export const MealList: React.FC<MealListProps> = ({ onOpenNewMeal, onEditMeal }) => {
+export const MealList: React.FC<MealListProps> = ({ 
+  onOpenNewMeal, 
+  onEditMeal,
+  onDuplicateMeal,
+  onCopyIngredient
+}) => {
   const { currentDaySummary, deleteMeal } = useNutrition();
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null);
+  const [copiedFeedback, setCopiedFeedback] = useState<string | null>(null);
+
+  const showCopyToast = (text: string) => {
+    setCopiedFeedback(text);
+    setTimeout(() => {
+      setCopiedFeedback(null);
+    }, 2000);
+  };
 
   const { meals } = currentDaySummary;
 
@@ -47,7 +63,14 @@ export const MealList: React.FC<MealListProps> = ({ onOpenNewMeal, onEditMeal })
   };
 
   return (
-    <div className="mb-24">
+    <div className="mb-24 relative">
+      {/* Toast de copie */}
+      {copiedFeedback && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-slate-950 font-bold text-xs py-1.5 px-3 rounded-full shadow-lg shadow-emerald-500/30 animate-bounce">
+          ✓ {copiedFeedback}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-3 px-1">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
           Repas enregistrés ({meals.length})
@@ -120,6 +143,18 @@ export const MealList: React.FC<MealListProps> = ({ onOpenNewMeal, onEditMeal })
                   </div>
 
                   <div className="flex items-center gap-1">
+                    {onDuplicateMeal && (
+                      <button
+                        onClick={() => {
+                          showCopyToast(`Repas "${meal.repas_nom}" copié`);
+                          onDuplicateMeal(meal);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-amber-400 rounded-lg hover:bg-slate-800 transition-colors"
+                        title="Dupliquer / Copier ce repas"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => onEditMeal(meal)}
                       className="p-1.5 text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-slate-800 transition-colors"
@@ -188,16 +223,30 @@ export const MealList: React.FC<MealListProps> = ({ onOpenNewMeal, onEditMeal })
                     {meal.ingredients.map((ing) => (
                       <div 
                         key={ing.id}
-                        className="flex items-center justify-between text-xs py-1 px-2 bg-slate-950/40 rounded-lg"
+                        className="flex items-center justify-between text-xs py-1.5 px-2 bg-slate-950/40 hover:bg-slate-950/70 rounded-lg transition-colors group"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                           <span className="text-slate-200 font-medium">{ing.nom}</span>
                         </div>
                         <div className="flex items-center gap-2 text-slate-400 font-medium">
                           <span className="text-slate-300">{ing.poids_estime_g}g</span>
                           <span>•</span>
                           <span className="text-white font-semibold">{ing.calories} kcal</span>
+                          {onCopyIngredient && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                showCopyToast(`Aliment "${ing.nom}" copié`);
+                                onCopyIngredient(ing);
+                              }}
+                              className="ml-1 p-1 text-slate-500 hover:text-amber-400 rounded-md hover:bg-slate-800 transition-colors"
+                              title="Copier cet aliment (0 appel API)"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
